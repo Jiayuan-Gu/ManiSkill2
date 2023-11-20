@@ -10,7 +10,7 @@ from mani_skill2.utils.common import clip_and_scale_action
 from mani_skill2.utils.sapien_utils import get_entity_by_name, vectorize_pose
 
 from ..base_controller import BaseController, ControllerConfig
-from .pd_joint_pos import PDJointPosController
+from .pd_joint_pos import PDJointPosController, PDJointPosMimicController, PDJointPosMimicControllerConfig
 
 
 # NOTE(jigu): not necessary to inherit, just for convenience
@@ -211,3 +211,58 @@ class PDEEPoseControllerConfig(ControllerConfig):
     interpolate: bool = False
     normalize_action: bool = True
     controller_cls = PDEEPoseController
+
+
+class MagicGripperController(PDJointPosMimicController):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._drive = None
+
+    def _initialize_joints(self):
+        super()._initialize_joints()
+        self.scene = self.articulation.get_builder().get_scene()
+        self.ee_link = get_entity_by_name(
+            self.articulation.get_links(), self.config.ee_link
+        )
+
+    def reset(self):
+        super().reset()
+        if self._drive is not None:
+            self.scene.remove_drive(self._drive)
+            self._drive = None
+        self.actors = [
+            actor for actor in self.scene.get_all_actors() if actor.type == "dynamic"
+        ]
+
+    def set_action(self, action: np.ndarray):
+        super().set_action(action)
+    
+        if len(self.actors) == 0:
+            return
+        print("action", action)
+        if action < 0:
+            if self._drive is None:
+                distances = [
+                    np.linalg.norm(self.ee_link.pose.p - actor.pose.p)
+                    for actor in self.actors
+                ]
+                idx = np.argmin(distances)
+                print("close gripper", distances)
+                if distances[idx] < 0.2:
+                    actor = self.actors[idx]
+                    print("attach object")
+                    self._drive = self.scene.create_drive(
+                        self.ee_link, self.ee_link.pose.inv(), actor, actor.pose.inv()
+                    )
+                    self._drive.lock_motion(True, True, True, True, True, True)
+        else:
+            if self._drive is not None:
+                print("release object")
+                self.scene.remove_drive(self._drive)
+                self._drive = None
+
+
+@dataclass
+class MagicGripperControllerConfig(PDJointPosMimicControllerConfig):
+    ee_link: str = None
+    controller_cls = MagicGripperController

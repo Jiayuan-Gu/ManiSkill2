@@ -143,6 +143,17 @@ class PandaDefaultConfig:
             self.gripper_force_limit,
         )
 
+        magic_gripper = MagicGripperControllerConfig(
+            self.gripper_joint_names,
+            -0.01,  # a trick to have force when the object is thin
+            0.04,
+            self.gripper_stiffness,
+            self.gripper_damping,
+            self.gripper_force_limit,
+            ee_link=self.ee_link_name,
+            
+        )
+
         controller_configs = dict(
             pd_joint_delta_pos=dict(
                 arm=arm_pd_joint_delta_pos, gripper=gripper_pd_joint_pos
@@ -173,6 +184,9 @@ class PandaDefaultConfig:
             pd_joint_delta_pos_vel=dict(
                 arm=arm_pd_joint_delta_pos_vel, gripper=gripper_pd_joint_pos
             ),
+            pd_ee_target_delta_pose_magic_gripper=dict(
+                arm=arm_pd_ee_target_delta_pose, gripper=magic_gripper,
+            )
         )
 
         # Make a deepcopy in case users modify any config

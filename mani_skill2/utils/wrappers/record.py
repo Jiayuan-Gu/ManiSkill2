@@ -101,6 +101,7 @@ class RecordEpisode(gym.Wrapper):
         info_on_video=False,
         save_on_reset=True,
         clean_on_close=True,
+        render_mode=None,
     ):
         super().__init__(env)
 
